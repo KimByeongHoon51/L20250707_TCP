@@ -22,6 +22,9 @@ int main()
 
 	Result = connect(ServerSocket, (struct sockaddr*)&ServerAddr, sizeof(ServerAddr));
 
+	const char Message[1024] = "Hello 20250707";
+	send(ServerSocket, Message, strlen(Message), 0);
+
 	char Buffer[1024] = { 0 };
 	recv(ServerSocket, Buffer, 1024, 0);
 	cout << Buffer << endl;

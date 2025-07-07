@@ -30,9 +30,6 @@ int main()
 
 	SOCKET ClientSocket = accept(ListenSocket, (struct sockaddr*)&ClientSockAddr, &ClientSockAddrLength);
 
-	const char Message[1024] = "Hello 20250707";
-	send(ClientSocket, Message, strlen(Message), 0);
-
 	char Buffer[1024] = { 0 };
 	recv(ClientSocket, Buffer, 1024, 0);
 	cout << Buffer << endl;
