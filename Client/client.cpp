@@ -29,8 +29,6 @@ int main()
 	recv(ServerSocket, Buffer, 1024, 0);
 	cout << Buffer << endl;
 
-	send(ServerSocket, Buffer, strlen(Buffer), 0);
-
 	closesocket(ServerSocket);
 	WSACleanup();
 

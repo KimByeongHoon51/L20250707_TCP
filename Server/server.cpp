@@ -31,8 +31,10 @@ int main()
 	SOCKET ClientSocket = accept(ListenSocket, (struct sockaddr*)&ClientSockAddr, &ClientSockAddrLength);
 
 	char Buffer[1024] = { 0 };
-	recv(ClientSocket, Buffer, 1024, 0);
-	cout << Buffer << endl;
+	int bytesReceived = recv(ClientSocket, Buffer, 1024, 0);
+	if (bytesReceived > 0) {
+		send(ClientSocket, Buffer, bytesReceived, 0);
+	}
 
 	closesocket(ClientSocket);
 	closesocket(ListenSocket);
