@@ -2,34 +2,57 @@
 
 #include <iostream>
 #include <WinSock2.h>
+#include <Windows.h>
+#include <process.h>
 
-#pragma comment(lib, "ws2_32")
+#pragma comment(lib,"ws2_32")
 
-using namespace std;
+unsigned RecvThread(void* Args)
+{
+	SOCKET ServerSocket = *(SOCKET*)Args;
+	while (true)
+	{
+		char RecvBuffer[1024] = {};
+		recv(ServerSocket, RecvBuffer, 1024, 0);
+		std::cout << "Server : " << RecvBuffer << std::endl;
+	}
+	return 0;
+}
+
+unsigned SendThread(void* Args)
+{
+	SOCKET ServerSocket = *(SOCKET*)Args;
+	while (true)
+	{
+		char Buffer[1024] = {};
+		std::cin >> Buffer;
+		send(ServerSocket, Buffer, 1024, 0);
+	}
+	return 0;
+}
 
 int main()
 {
 	WSAData wsaData;
-	int Result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-	SOCKET ServerSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	SOCKET ServerSocket = socket(AF_INET, SOCK_STREAM, 0);
 
-	struct sockaddr_in ServerAddr;
-	memset(&ServerAddr, 0, sizeof(ServerAddr));
-	ServerAddr.sin_family = PF_INET;
-	ServerAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	ServerAddr.sin_port = htons(30303);
+	SOCKADDR_IN ListenSocketAddr;
+	ListenSocketAddr.sin_family = PF_INET;
+	ListenSocketAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	ListenSocketAddr.sin_port = htons(32000);
+	connect(ServerSocket, (SOCKADDR*)&ListenSocketAddr, sizeof(ListenSocketAddr));
 
-	Result = connect(ServerSocket, (struct sockaddr*)&ServerAddr, sizeof(ServerAddr));
+	HANDLE ThreadHandles[2];
+	ThreadHandles[0] = (HANDLE)_beginthreadex(0, 0, RecvThread, (void*)&ServerSocket, 0, 0);
 
-	const char Message[1024] = "Hello 20250707";
-	send(ServerSocket, Message, strlen(Message), 0);
+	ThreadHandles[1] = (HANDLE)_beginthreadex(0, 0, SendThread, (void*)&ServerSocket, 0, 0);
 
-	char Buffer[1024] = { 0 };
-	recv(ServerSocket, Buffer, 1024, 0);
-	cout << Buffer << endl;
+	WaitForMultipleObjects(2, ThreadHandles, TRUE, INFINITE);
 
 	closesocket(ServerSocket);
+
 	WSACleanup();
 
 	return 0;

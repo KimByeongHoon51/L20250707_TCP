@@ -1,43 +1,90 @@
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
+﻿#define _WINSOCK_DEPRECATED_NO_WARNINGS
+
+#define FD_SETSIZE      100
 
 #include <iostream>
 #include <WinSock2.h>
 
-#pragma comment(lib, "ws2_32")
-
-using namespace std;
+#pragma comment(lib,"ws2_32")
 
 int main()
 {
 	WSAData wsaData;
-	int Result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
-	SOCKET ListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	SOCKET ListenSocket = socket(AF_INET, SOCK_STREAM, 0);
 
-	struct sockaddr_in ListenSockAddr;
-	memset(&ListenSockAddr, 0, sizeof(ListenSockAddr));
-	ListenSockAddr.sin_family = PF_INET;
-	ListenSockAddr.sin_addr.s_addr = INADDR_ANY;
-	ListenSockAddr.sin_port = htons(30303);
+	SOCKADDR_IN ListenSocketAddr;
+	memset(&ListenSocketAddr, 0, sizeof(ListenSocketAddr));
+	ListenSocketAddr.sin_family = PF_INET;
+	ListenSocketAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	ListenSocketAddr.sin_port = htons(32000);
+	bind(ListenSocket, (SOCKADDR*)&ListenSocketAddr, sizeof(ListenSocketAddr));
 
-	Result = bind(ListenSocket, (struct sockaddr*)&ListenSockAddr, sizeof(ListenSockAddr));
+	listen(ListenSocket, 5);
 
-	Result = listen(ListenSocket, 5);
+	fd_set ReadSockets;
+	FD_ZERO(&ReadSockets);
+	FD_SET(ListenSocket, &ReadSockets);
 
-	struct sockaddr_in ClientSockAddr;
-	memset(&ClientSockAddr, 0, sizeof(ClientSockAddr));
-	int ClientSockAddrLength = sizeof(ClientSockAddr);
+	while (true)
+	{
 
-	SOCKET ClientSocket = accept(ListenSocket, (struct sockaddr*)&ClientSockAddr, &ClientSockAddrLength);
+		fd_set ReadSocketCopys;
 
-	char Buffer[1024] = { 0 };
-	int bytesReceived = recv(ClientSocket, Buffer, 1024, 0);
-	if (bytesReceived > 0) {
-		send(ClientSocket, Buffer, bytesReceived, 0);
+		ReadSocketCopys = ReadSockets;
+
+		struct timeval Timeout;
+		Timeout.tv_sec = 0;
+		Timeout.tv_usec = 1000;
+
+		//polling
+		int ChangeSocketCount = select(0, &ReadSocketCopys, NULL, NULL, &Timeout);
+		if (ChangeSocketCount <= 0)
+		{
+			continue;
+		}
+
+		else
+		{
+			for (int i = 0; i < ReadSockets.fd_count; ++i)
+			{
+				if (FD_ISSET(ReadSockets.fd_array[i], &ReadSocketCopys))
+				{
+					if (ReadSockets.fd_array[i] == ListenSocket)
+					{
+						SOCKADDR_IN ClientSocketAddr;
+						int ClientSocketAddrSize = sizeof(ClientSocketAddr);
+						SOCKET ClientSocket = accept(ListenSocket, (SOCKADDR*)&ClientSocketAddr, &ClientSocketAddrSize);
+						FD_SET(ClientSocket, &ReadSockets);
+						std::cout << "Connect" << std::endl;
+					}
+					else
+					{
+						char RecvBuffer[1024] = {};
+						int RecvBytes = recv(ReadSockets.fd_array[i], RecvBuffer, 1024, 0);
+						if (RecvBytes <= 0)
+						{
+							closesocket(ReadSockets.fd_array[i]);
+							FD_CLR(ReadSockets.fd_array[i], &ReadSockets);
+							std::cout << "Disconnect" << std::endl;
+						}
+						for (int j= 0; j < ReadSockets.fd_count; ++j)
+						{
+							if (ReadSockets.fd_array[j] != ListenSocket)
+							{
+								send(ReadSockets.fd_array[j], RecvBuffer, 1024, 0);
+							}
+	
+						}
+					}
+				}
+			}
+		}
 	}
 
-	closesocket(ClientSocket);
 	closesocket(ListenSocket);
+
 	WSACleanup();
 
 	return 0;
